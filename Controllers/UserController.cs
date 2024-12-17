@@ -10,7 +10,6 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
 using BC = BCrypt.Net.BCrypt;
 
-
 namespace CyberMind_API.Controllers
 {
     [ApiController]
@@ -24,32 +23,42 @@ namespace CyberMind_API.Controllers
             _context = context;
         }
 
-        // Lister tout les users
+        /// <summary>
+        /// Récupère tous les utilisateurs et les retourne sous forme de DTO (Data Transfer Object).
+        /// Cette méthode effectue une requête dans la base de données pour obtenir tous les utilisateurs,
+        /// puis mappe les données nécessaires (nom, établissement, rôle, points, etc.) vers un DTO.
+        /// </summary>
+        /// <returns>Liste d'objets UserDTO représentant les utilisateurs avec des informations simplifiées.</returns>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<User>>> GetAllUsers()
         {
-
-            //  return await _context.Users.ToListAsync();
-
             var usersDTO = await _context.Users
-         .Select(user => new UserDTO
-         {
-             Id = user.Id,
-             Name = user.Name,
-             Etablissement = user.Etablissement,
-             ChallengeDones = user.ChallengeDones,
-             Role = user.role.Name,
-             Point = user.Point // pour que ce soit plus propre on aurait pu recuperer les point avec la somme de challengedone
-         })
-         .ToListAsync();
+                .Select(user => new UserDTO
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Etablissement = user.Etablissement,
+                    ChallengeDones = user.ChallengeDones,
+                    Role = user.role.Name,
+                    Point = user.Point // Pour la propreté du code, on pourrait aussi calculer les points via une somme de challenges.
+                })
+                .ToListAsync();
 
             return Ok(usersDTO);
         }
+
+        /// <summary>
+        /// Récupère un utilisateur spécifique par son identifiant (ID) et le retourne sous forme de DTO.
+        /// Cette méthode permet de rechercher un utilisateur dans la base de données à l'aide de son identifiant.
+        /// Si l'utilisateur est trouvé, il est retourné sous forme d'un DTO. Sinon, un message d'erreur est renvoyé.
+        /// </summary>
+        /// <param name="id">L'identifiant de l'utilisateur à récupérer.</param>
+        /// <returns>Un objet UserDTO contenant les informations de l'utilisateur ou un message d'erreur si l'utilisateur n'est pas trouvé.</returns>
         [HttpGet("{id}")]
         public async Task<ActionResult<UserDTO>> GetUserById(int id)
         {
             var userDTO = await _context.Users
-                .Where(user => user.Id == id)  // Recherche l'utilisateur par ID
+                .Where(user => user.Id == id)
                 .Select(user => new UserDTO
                 {
                     Id = user.Id,
@@ -69,30 +78,44 @@ namespace CyberMind_API.Controllers
             return Ok(userDTO);
         }
 
-        // Create a new User
+        /// <summary>
+        /// Crée un nouvel utilisateur avec les informations fournies.
+        /// Cette méthode permet de créer un utilisateur en spécifiant son nom, son mail, son mot de passe
+        /// et son code d'inscription. Les informations sont validées avant la création, et le rôle par défaut
+        /// est attribué à l'utilisateur.
+        /// </summary>
+        /// <param name="name">Nom de l'utilisateur.</param>
+        /// <param name="mail">Adresse mail de l'utilisateur.</param>
+        /// <param name="password">Mot de passe de l'utilisateur.</param>
+        /// <param name="codeInscription">Code d'inscription de l'établissement auquel l'utilisateur est rattaché.</param>
+        /// <returns>Un code HTTP 201 si l'utilisateur a été créé avec succès, ou un code d'erreur en cas de problème.</returns>
         [HttpPost]
         public async Task<ActionResult<User>> CreateUser(string name, string mail, string password, string codeInscription)
         {
-            //on vérifie que chaque valeur n'est pas nul, le rôle de l'utilisateur sera ajouter en dur pour le moment
             if (name == null)
             {
                 return BadRequest("Merci de rentrer un nom");
             }
-            if (mail == null) { 
-                return BadRequest("mail manquant"); 
+            if (mail == null)
+            {
+                return BadRequest("mail manquant");
             }
-            if (password == null) { 
-                return BadRequest("merci d'indiquer votre password"); 
+            if (password == null)
+            {
+                return BadRequest("merci d'indiquer votre password");
             }
-            if (codeInscription == null) {
+            if (codeInscription == null)
+            {
                 return BadRequest("il manque le code d'etablisement");
             }
 
-            var unetablissement = await _context.Etablissements.Where(e => e.CodeInscription == codeInscription).FirstOrDefaultAsync();
+            var unetablissement = await _context.Etablissements
+                .Where(e => e.CodeInscription == codeInscription)
+                .FirstOrDefaultAsync();
 
             if (unetablissement == null)
             {
-                return BadRequest("Il n'existe pas d'etablisement avec ce code."); ;
+                return BadRequest("Il n'existe pas d'etablissement avec ce code.");
             }
 
             uint test = 1;
@@ -113,12 +136,21 @@ namespace CyberMind_API.Controllers
                 Etablissement = unetablissement,
                 role = leroledebase
             };
+
             _context.Users.Add(UnUser);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(CreateUser), new { id = UnUser.Id }, UnUser);
         }
 
+        /// <summary>
+        /// Met à jour les informations d'un utilisateur existant.
+        /// Cette méthode permet de modifier les informations d'un utilisateur en fonction de son ID.
+        /// Si l'utilisateur existe, les modifications sont appliquées et sauvegardées dans la base de données.
+        /// </summary>
+        /// <param name="id">Identifiant de l'utilisateur à mettre à jour.</param>
+        /// <param name="unuser">Objet User contenant les nouvelles données de l'utilisateur.</param>
+        /// <returns>Un code HTTP 200 si l'utilisateur a été mis à jour, ou un code d'erreur en cas de problème.</returns>
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(int id, User unuser)
         {
@@ -148,7 +180,13 @@ namespace CyberMind_API.Controllers
             return Ok();
         }
 
-        // DELETE: api/user/{id}
+        /// <summary>
+        /// Supprime un utilisateur existant.
+        /// Cette méthode permet de supprimer un utilisateur de la base de données en fonction de son ID.
+        /// Si l'utilisateur existe, il est supprimé, sinon une erreur est retournée.
+        /// </summary>
+        /// <param name="id">Identifiant de l'utilisateur à supprimer.</param>
+        /// <returns>Un code HTTP 200 si l'utilisateur a été supprimé, ou un code d'erreur si l'utilisateur n'est pas trouvé.</returns>
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
@@ -165,10 +203,17 @@ namespace CyberMind_API.Controllers
             return Ok();
         }
 
+        /// <summary>
+        /// Ajoute des points à un utilisateur existant.
+        /// Cette méthode permet d'ajouter un certain nombre de points à l'utilisateur en fonction de son ID.
+        /// Les points sont ajoutés à l'utilisateur et la base de données est mise à jour.
+        /// </summary>
+        /// <param name="id">Identifiant de l'utilisateur auquel les points doivent être ajoutés.</param>
+        /// <param name="pointsToAdd">Nombre de points à ajouter à l'utilisateur.</param>
+        /// <returns>Un code HTTP 200 si les points ont été ajoutés, ou un code d'erreur si l'utilisateur n'est pas trouvé.</returns>
         [HttpPatch("{id}/add-points")]
         public async Task<IActionResult> AddPointsToUser(int id, [FromQuery] int pointsToAdd)
         {
-
             var user = await _context.Users.FindAsync(id);
             if (user == null)
             {
@@ -178,7 +223,6 @@ namespace CyberMind_API.Controllers
             user.Point += pointsToAdd;
 
             await _context.SaveChangesAsync();
-
 
             return Ok();
         }
