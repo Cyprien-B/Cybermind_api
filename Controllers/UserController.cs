@@ -9,10 +9,12 @@ using CyberMind_API.Modeles;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
 using BC = BCrypt.Net.BCrypt;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CyberMind_API.Controllers
 {
     [ApiController]
+    //[Authorize]
     [Route("api/[controller]")]
     public class UserController : ControllerBase
     {
@@ -89,6 +91,8 @@ namespace CyberMind_API.Controllers
         /// <param name="password">Mot de passe de l'utilisateur.</param>
         /// <param name="codeInscription">Code d'inscription de l'établissement auquel l'utilisateur est rattaché.</param>
         /// <returns>Un code HTTP 201 si l'utilisateur a été créé avec succès, ou un code d'erreur en cas de problème.</returns>
+
+        // A authoriser pour tous
         [HttpPost]
         public async Task<ActionResult<User>> CreateUser(string name, string mail, string password, string codeInscription)
         {
